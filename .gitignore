@@ -1,0 +1,22 @@
+# Python 虛擬環境與快取
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 環境變數與金鑰（所有 API key 一律走環境變數，見 config/settings.py）
+.env
+.env.*
+*.key
+*.pem
+
+# Claude Code 本機設定（含個人權限設定，不進版控）
+.claude/settings.local.json
+
+# OS 雜項
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 注意：data/*.sqlite 刻意「未」排除——固定資料集原則，資料庫隨 repo 備份
+# （檔案大小均遠低於 GitHub 100MB 限制，詳見 2026-07-17 備份決策）
