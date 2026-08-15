@@ -207,8 +207,20 @@ N=3 動態線對 2330 設計意圖完好（≥15% 僅 0.23% bar），對 TPEx �
 失效（8069 有 19.52% 交易日動態線在固定網之上），真實危機期（2008 金融
 海嘯、2015 全球股災）固定網反而先觸發、兩層防線角色反轉——台股放空設計
 啟動時 N=3/w=14 不可直接沿用。見「台股 regime/ATR 參數校正」節。
+**★雲端環境基準已驗證接受（2026-08-15）★**：本機送修，改用 Claude Code on the
+web 雲端 session（Linux, **Python 3.11.15**，本機為 3.14.6）。四項驗證全 PASS：
+凍結校驗和逐位相同、**379 passed/0 warnings**（與記錄一致）、**封鎖 socket 後
+重跑全套仍 379 passed**（證明免 FinMind token、全部讀凍結 DB，非讀碼推論）、
+`run_tw_short_baseline.py` 在 3.11.15/numpy 2.4.6 與 3.14/numpy 2.5.2 兩組環境
+**輸出逐位元完全相同**（版本差異實測零影響；殘留限制：驗到 3.14.0rc2 非精確
+3.14.6，已記錄接受）。順帶修掉 `requirements.txt` 漏列 scikit-learn（乾淨環境
+7 個測試模組 collection error），並依使用者決定把全部版本 pin 死。見
+「雲端環境基準」節與 `docs/CLOUD_SETUP.md`。
 
-## 環境（2026-07-03 重大變更）
+## 環境（2026-07-03 重大變更；2026-08-15 起本機送修，改用雲端 session）
+> **目前實際工作環境是雲端 sandbox（Linux, Python 3.11.15），不是下面的 Windows 本機。**
+> 見「雲端環境基準」節。本節保留為本機環境的記錄，本機修好後回歸時仍適用。
+
 - Windows 11，PowerShell 為主（也有 bash）。
 - **系統 Python 3.13 已消失**（2026-07-03 重開機後只剩 3.11 與 3.14，且皆為裸環境）。
   現在用專案內 venv：`.venv\`（Python 3.14.6 + pandas 3.0.3 + numpy 2.5 +
@@ -217,9 +229,109 @@ N=3 動態線對 2330 設計意圖完好（≥15% 僅 0.23% bar），對 TPEx �
 - Binance 公開 REST 可連（不需金鑰）。**注意：此環境的系統時鐘在 2026 年，抓到的「最新」K 線是 2026 年資料，非錯誤。**
 - 中文 print 在 console 會亂碼，跑腳本請加：`PYTHONUTF8=1 PYTHONIOENCODING=utf-8`
 
+## 雲端環境基準（2026-08-15，★已驗證接受，新 session 直接引用不需重查★）
+
+**背景**：本機電腦送修，改用 Claude Code on the web 的雲端 session 工作。容器是
+**ephemeral** 的——每個新 session 都是重新 clone 的乾淨 repo，`.venv` 不保留。
+本節記錄該輪完整驗證過程，等級比照其他「已知限制但已驗證接受」條目，讓之後
+任何 session 不必重走一次查證。重建流程見 `docs/CLOUD_SETUP.md` / `./setup_cloud_env.sh`。
+
+### 環境對照
+
+| | 本機（送修前） | 雲端 sandbox |
+|---|---|---|
+| OS | Windows 11 | Linux（容器） |
+| Python | 3.14.6 | **3.11.15**（預設；另有 3.10/3.12/3.13，無任何 3.14） |
+| numpy | 2.5 | **2.4.6** |
+| pandas | 3.0.3 | **3.0.5** |
+| scikit-learn | 1.9 | 1.9.0 |
+| git | 無（非 repo） | 有（repo，走 branch+PR） |
+
+**★已定案：雲端一律用 sandbox 預設 3.11.15★**（2026-08-15 使用者拍板）。理由：
+版本可信度問題已由下述逐位對照解決，剩下的純粹是操作便利性——uv 索引在此容器
+只到 3.14.0rc2（RC 版是不必要的風險），apt 的 3.14.3 屬全域安裝、在 ephemeral
+容器裡每個 session 都要重來，兩者都不划算。
+
+### 驗證項目與結果（全部 PASS）
+
+**1. Repo 完整性**：commit `27229f3`、tracked 112 檔；四個資料庫大小吻合
+（chips_tw 43.7MB / klines 7.6MB / klines_tw 1.8MB / events_tw 0.04MB）。
+逐項核對本檔「台股固定資料集原則」的凍結校驗和，**全部逐位相同**：
+klines_tw 四檔 COUNT/SUM(close)/max_ts、events_tw dividend_result 與
+short_sale_suspension、klines BTCUSDT 25300 + ETHUSDT 26000。
+`chip_holding_dispersion` 0 列 = 本檔既有記載的「被 sponsor 擋、緩做」，非缺漏。
+
+**2. 全套測試**：**379 passed, 0 warnings**，與本檔記錄的 379 完全一致，零差異需排查。
+
+**3. 免 token 是「證明」不是「推論」**：沒有靠讀程式碼判斷，而是用 sitecustomize
+把 `socket.socket.connect` / `connect_ex` / `create_connection` / `getaddrinfo`
+全部替換成拋例外，再跑一次全套 → **379 passed**。任何需要即時打 API 的測試在
+這個設定下都會直接炸開、不可能靜默通過。環境本身也未設 `FINMIND_TOKEN`。
+`run_tw_short_baseline.py` 亦在同樣離線條件下完整跑完。
+**結論：全套測試與台股 runner 都只讀已落地的凍結資料庫，雲端 session 不需任何 API token。**
+
+**4. Python 版本差異的影響 = 實測零（position-level diff，不是推論）**：
+另建第二個 venv（uv，Python 3.14.0rc2 + numpy 2.5.2，放在容器暫存區、不動系統全域）：
+- 全套測試 → 379 passed
+- 更強的證據：`run_tw_short_baseline.py`（全凍結快照、逐位可重現）在
+  **3.11.15/numpy 2.4.6** 與 **3.14/numpy 2.5.2** 兩組環境各跑一次 →
+  **輸出逐位元完全相同（`diff` 零差異）**，四檔 mean 亦與本檔「台股放空正式基準」
+  記錄逐位吻合：2330 +18.7%（std 35.6%）／2603 +17.9%（54.4%）／
+  8069 +9.4%（53.9%）／6446 -4.5%（44.3%）。
+
+**5. ★雲端網路政策：資料抓取類 runner 在此環境「不能跑」★**（順帶查證，重要）：
+這個容器的對外連線走 agent proxy，且**政策層直接擋掉本專案的兩個資料源**——
+`api.binance.com` 與 `api.finmindtrade.com` 皆回 `CONNECT tunnel failed, 403`
+（proxy status 的 `recentRelayFailures` 明確記為 `connect_rejected`／
+「policy denial」）；`pypi.org`／`files.pythonhosted.org`（在 noProxy 允許清單內）
+與 `github.com` 正常，所以 pip 安裝與 git push 不受影響。
+
+推論與影響：
+- **分析／回測類 runner 全部可跑**（一律讀凍結 DB，本輪已實測
+  `run_tw_short_baseline.py` 完整跑完）。
+- **資料抓取類 runner 在雲端一律不可用**：`run_ingest.py`（Binance）、
+  `run_ingest_chips.py`／`run_ingest_tw_price.py`／`run_ingest_tw_events.py`
+  （FinMind）都會在連線階段就失敗。**任何需要擴充/刷新資料集的任務，在本機
+  修好之前不要排進雲端 session**，或需先請使用者調整環境網路政策。
+- 附帶效果：這也讓「凍結資料集原則」在雲端被環境**強制**執行——不可能發生
+  某個 runner 偷偷即時抓資料導致數字漂移。
+
+**已知限制（誠實揭露）**：驗到的是 3.14.0rc2，**不是**本機精確的 3.14.6——
+uv 在此容器的索引只到 rc2，apt 只到 3.14.3。故嚴格說法是「3.14 系列與 3.11.15
+在本專案的凍結資料集上逐位相同」，不是「3.14.6 逐位相同」。考量到差異若存在
+應在 numpy/pandas 層而非 CPython patch 版本層（本輪 numpy 已跨 2.4.6↔2.5.2 兩個
+minor 仍逐位相同），此殘留風險判定為可接受、記錄不消除。
+
+### 順帶發現的落差（已修）
+
+**`requirements.txt` 漏列 `scikit-learn`**。本機 venv 早已裝好所以從未暴露；
+乾淨環境照舊檔安裝後，7 個測試模組直接 collection error（`test_costs` /
+`test_event_engine_risk` / `test_grid_search` / `test_liq_calibration` /
+`test_ml_signal` / `test_short_risk_overlay` / `test_walk_forward`，
+根因都是 `backtest/walk_forward.py` import `sklearn.model_selection.TimeSeriesSplit`）。
+屬 `COLLAB.md` 的「文件與程式碼漂移」類。
+
+**處置（2026-08-15 使用者拍板）**：不只補漏，而是把 `requirements.txt` 全部版本
+（含遞移相依）**一律 pin 死**，理由與但書寫在該檔開頭註解。這是把「凍結資料集、
+逐位可重現」延伸到依賴管理層——先例是 pandas 3.0 的 `to_datetime` 解析度行為
+造成的 ns/us 靜默 bug（見 Phase 3 節「台股日K」）。
+**numpy 無法兩邊共用同一 pin**（2.4.6 無 cp314 wheel、2.5.x 不支援 3.11）：
+本檔 pin 以雲端基準為準，本機裝不起來時應本機另存對應 pin 組合並重跑逐位對照，
+**不是**把 requirements.txt 改回範圍寫法。
+
 ## 怎麼跑
+
+**雲端 session（目前的工作環境）**：容器 ephemeral，每次都要先重建 venv：
 ```bash
-# 全部單元測試（應 303 passed，0 warnings）
+./setup_cloud_env.sh          # 建 venv + 裝 pin 死的相依 + 跑全套測試
+./setup_cloud_env.sh --full   # 上述 + 凍結資料庫校驗和 + 離線（封 socket）測試
+```
+之後指令一律用 `.venv/bin/python`（下面的範例是本機 Windows 路徑，
+雲端把 `.venv/Scripts/python.exe` 換成 `.venv/bin/python`）。
+細節見 `docs/CLOUD_SETUP.md` 與上方「雲端環境基準」節。
+
+```bash
+# 全部單元測試（應 379 passed，0 warnings）
 .venv/Scripts/python.exe -m pytest tests/ -q
 
 # 端到端流程 + 績效報表（抓真實 BTCUSDT 1h）

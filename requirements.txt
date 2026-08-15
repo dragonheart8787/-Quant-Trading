@@ -1,5 +1,48 @@
-# Phase 1 垂直切片相依套件（研究期最小集合）
-pandas>=2.0
-numpy>=1.24
-requests>=2.28
-pytest>=7.0
+# 相依套件（版本全數 pin 死，2026-08-15 雲端環境驗證輪起）
+#
+# 【為什麼不留鬆散版本範圍】
+# 這是把既有的「凍結資料集、逐位可重現」哲學延伸到依賴管理層。本專案已有
+# 一次實際傷害：台股日K POC 整合時踩到 features.py 的 ns/us 解析度 bug，
+# 根因是 pandas 3.0 的 to_datetime 把 ISO 字串解析成 datetime64[us]，與
+# storage int64 奈秒往返的 datetime64[ns] 不符 → merge_asof MergeError
+# （見 HANDOFF.md Phase 3 節「台股日K」）。套件行為隨版本改變會靜默改變
+# 數值/型別語意——與 AGENTS.md「新增預設參數的隱藏影響範圍」同型：不報錯、
+# 不警告，只在數字對不上時才被發現。因此一律用 ==，不用 >=。
+#
+# 【本檔的基準組合】
+# Python 3.11.15（雲端 sandbox 預設）+ 下列版本 → tests/ 379 passed, 0 warnings。
+# 完整驗證過程見 HANDOFF.md「雲端環境基準」節；重建步驟見 docs/CLOUD_SETUP.md
+# 或直接跑 ./setup_cloud_env.sh。
+#
+# 【本機 3.14.6 環境的但書（重要，不要據此放寬 pin）】
+# 本機 venv（Windows, Python 3.14.6）的版本組合可能略有不同——numpy 尤其無法
+# 兩邊共用：numpy 2.4.6 沒有 cp314 wheel、numpy 2.5.x 已不支援 3.11，任何單一
+# pin 都不可能同時裝得起來。這個差異已經用凍結資料集實測過：
+# run_tw_short_baseline.py 在（3.11.15 + numpy 2.4.6）與（3.14 + numpy 2.5.2）
+# 兩組環境下輸出**逐位元完全相同**（diff 零差異，四檔 mean 與 HANDOFF 記錄逐位
+# 吻合），故版本差異不影響可重現性。
+# → 本檔的 pin 以「雲端基準」為準。本機若因 Python 版本裝不起來，正確做法是
+#   本機另存一份對應的 pin 組合並重跑逐位對照，**不是**把這裡改回範圍寫法。
+
+# --- 直接相依 ---
+numpy==2.4.6
+pandas==3.0.5
+requests==2.34.2
+scikit-learn==1.9.0      # backtest/walk_forward.py TimeSeriesSplit、ai/ml_train.py LR
+pytest==9.1.1
+
+# --- 遞移相依（一併鎖定，否則乾淨安裝仍會抓到新版）---
+certifi==2026.7.22
+charset-normalizer==3.5.0
+idna==3.18
+iniconfig==2.3.0
+joblib==1.5.3
+narwhals==2.24.0
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.20.0
+python-dateutil==2.9.0.post0
+scipy==1.17.1
+six==1.17.0
+threadpoolctl==3.6.0
+urllib3==2.7.0
