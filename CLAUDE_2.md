@@ -118,6 +118,12 @@ quant-stack/
 ├─ logging/logger.py
 ├─ monitoring/{metrics.py,alerts.py}   # Prometheus
 ├─ deployment/{Dockerfile,compose.yaml}
+├─ docs/CLOUD_SETUP.md           # 雲端 session 環境重建（2026-08-15；容器 ephemeral，
+│                                #   每個新 session 都要重建 venv）
+├─ setup_cloud_env.sh            # 上述流程的可執行版（--full 另跑凍結校驗和＋離線測試）
+├─ requirements.txt              # ★所有版本含遞移相依一律 pin 死（2026-08-15）★——
+│                                #   「凍結資料集、逐位可重現」延伸到依賴層；改動前
+│                                #   先讀該檔開頭註解的但書（numpy 無法 3.11/3.14 共用同一 pin）
 └─ tests/                        # 風控與回測邏輯必須有測試（目前 379 個，0 warnings）
 ```
 
