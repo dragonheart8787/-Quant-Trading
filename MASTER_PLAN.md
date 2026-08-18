@@ -378,14 +378,29 @@ drill-down 到可解釋的真實因果鏈）、三項疊加邊界測試釘成永
 
 ### 8.1 環境還原（送修回來 / 換電腦）
 
+**雲端 session（2026-08-15 起的現行環境，Linux）**：容器 ephemeral，
+每個新 session 都要重建 venv，已固定成一支腳本：
+
 ```
 git clone https://github.com/dragonheart8787/-Quant-Trading
 cd -Quant-Trading
+./setup_cloud_env.sh          # 建 venv + 裝 pin 死的相依 + 跑全套測試
+./setup_cloud_env.sh --full   # 上述 + 凍結資料庫校驗和 + 離線（封 socket）測試
+```
+
+**本機（Windows，送修回來後）**：
+
+```
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-# 設定環境變數：FINMIND_TOKEN（Binance 公開端點不需金鑰）
 .venv\Scripts\python.exe -m pytest tests/ -q   # 應見 379 passed, 0 warnings
 ```
+
+**跑測試不需要任何 API token**（2026-08-15 以封鎖 socket 重跑全套實證，
+非讀碼推論）——`FINMIND_TOKEN` 只有資料抓取 runner 才需要，Binance 公開
+端點不需金鑰。`requirements.txt` 的版本（含遞移相依）已全數 pin 死，
+理由與 numpy 跨版本但書見該檔開頭註解；完整驗證過程見 HANDOFF.md
+「雲端環境基準」節，重建細節見 `docs/CLOUD_SETUP.md`。
 
 資料庫都在 repo 裡，**不需要重新 ingest**（重新 ingest 會破壞逐位
 重現性）。備份 commit：27229f38…（112 檔案，四資料庫 byte 級一致）。
@@ -393,8 +408,10 @@ python -m venv .venv
 ### 8.2 新 session 上下文重建（標準開場）
 
 ```
-1. 依序讀 COLLAB.md → AGENTS.md → CLAUDE_2.md → HANDOFF.md
-2. 環境用 .venv\Scripts\python.exe
+1. 依序讀 MASTER_PLAN.md（本檔，先看全貌）→ COLLAB.md → AGENTS.md
+   → CLAUDE_2.md → HANDOFF.md（五份，順序以 COLLAB.md 的必讀清單為準）
+2. 環境：雲端用 .venv/bin/python（先跑 ./setup_cloud_env.sh 重建）；
+   本機用 .venv\Scripts\python.exe
 3. 跑全套測試，實際數字與 HANDOFF 記錄比對，不一致先回報
 4. 若被要求「繼續上次工作」，先做狀態盤點（文件與程式碼可能因
    中斷而不同步），不要假設
@@ -416,5 +433,15 @@ python -m venv .venv
 `backtest/event_engine.py`、`risk/manager.py`
 
 解除限制是**當次任務範圍**，不是永久生效。歷次範圍性解鎖記錄見
-HANDOFF.md 各輪結案節（event_engine 已歷經五次：costs→sizing_mode
-→trigger_source→slippage_bps→台股放空參數組）。
+HANDOFF.md 各輪結案節。`event_engine.py` 已歷經五次，依時序為：
+
+1. `sizing_mode`（2026-07-13，規則一 sizing 接入 E2；預設 leverage_cap 逐位不變）
+2. `slippage_bps`（2026-07-15，滑價敏感度→正式基準切換至 2bp）
+3. `costs`（2026-07-16，台股 E2 化第一輪，買賣不對稱成本；預設 None 逐位不變）
+4. `short_uptick_rule_drop` + `lock_up`/`lock_down`（2026-07-16，台股放空第一輪）
+5. `short_entry_ban` + `forced_cover_deadline`（2026-07-16，強制回補日曆）
+
+注意：`trigger_source`（high 觸價敏感度輪，2026-07-14）**不是** event_engine
+的解鎖——該輪改的是 `backtest/liq_calibration.py`，HANDOFF 明載
+「event_engine.py 未動（不要動清單未破）」，且使用者拍板時明確決定
+「不解鎖 event_engine.py 做報酬層驗證」。
